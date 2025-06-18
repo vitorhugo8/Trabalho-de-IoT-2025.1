@@ -1,0 +1,66 @@
+#include <CircularBuffer.h>
+#include <MAX30100.h>
+#include <MAX30100_BeatDetector.h>
+#include <MAX30100_Filters.h>
+#include <MAX30100_PulseOximeter.h>
+#include <MAX30100_Registers.h>
+#include <MAX30100_SpO2Calculator.h>
+#include <Wire.h>
+
+
+#define REPORTING_PERIOD_MS 1000
+
+
+PulseOximeter pox;
+uint32_t tsLastReport = 0;
+
+
+void onBeatDetected() {
+  Serial.println("Batimento detectado!");
+}
+
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Iniciando monitor de SpO2 e frequência cardíaca...");
+
+
+  Wire.begin(21, 22); // SDA, SCL
+
+
+  if (!pox.begin()) {
+    Serial.println("Erro ao iniciar o sensor MAX30100. Verifique conexões.");
+    while (1);
+  } else {
+    Serial.println("Sensor iniciado com sucesso.");
+  }
+
+
+  pox.setIRLedCurrent(MAX30100_LED_CURR_7_6MA);  // Corrente baixa para segurança em idosos/crianças
+  pox.setOnBeatDetectedCallback(onBeatDetected);
+}
+
+
+void loop() {
+  pox.update();
+
+
+  if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
+    tsLastReport = millis();
+
+
+    float hr = pox.getHeartRate();
+    float spo2 = pox.getSpO2();
+
+
+    if (hr == 0 || spo2 == 0) {
+      Serial.println("Aguardando leituras estáveis...");
+    } else {
+      Serial.print("Frequência Cardíaca: ");
+      Serial.print(hr);
+      Serial.print(" bpm | SpO2: ");
+      Serial.print(spo2);
+      Serial.println(" %");
+    }
+  }
+}
